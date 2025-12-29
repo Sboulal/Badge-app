@@ -1,5 +1,5 @@
 /**
- * Badge Management System - Electron Main Process (FIXED)
+ * Badge Management System - Electron Main Process (IMPROVED)
  * Gère la fenêtre, le serveur Flask et l'intégration système
  */
 
@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, dialog, shell, nativeImage } = 
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const http = require('http');
 const Store = require('electron-store');
 
 // Configuration store
@@ -16,15 +17,55 @@ const store = new Store();
 let mainWindow = null;
 let tray = null;
 let flaskProcess = null;
-const FLASK_PORT = 5000;
+const FLASK_PORT = process.env.FLASK_PORT || 5000;
+const FLASK_HOST = process.env.FLASK_HOST || '127.0.0.1';
 const isDev = !app.isPackaged;
+
+// Charger les variables d'environnement depuis .env
+function loadEnvFile() {
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        const envVars = {};
+        
+        envContent.split('\n').forEach(line => {
+            line = line.trim();
+            if (line && !line.startsWith('#')) {
+                const [key, ...valueParts] = line.split('=');
+                if (key && valueParts.length > 0) {
+                    envVars[key.trim()] = valueParts.join('=').trim();
+                }
+            }
+        });
+        
+        console.log('Environment variables loaded from .env');
+        return envVars;
+    }
+    console.warn('.env file not found, using defaults');
+    return {};
+}
+
+const envVars = loadEnvFile();
 
 // Chemin vers Python et le script Flask
 function getPythonPath() {
-    if (process.platform === 'win32') {
-        return 'python';
+    // Essayer plusieurs chemins Python
+    const pythonCommands = process.platform === 'win32' 
+        ? ['python', 'python3', 'py'] 
+        : ['python3', 'python'];
+    
+    for (const cmd of pythonCommands) {
+        try {
+            const { execSync } = require('child_process');
+            execSync(`${cmd} --version`, { stdio: 'ignore' });
+            console.log(`Using Python command: ${cmd}`);
+            return cmd;
+        } catch (e) {
+            continue;
+        }
     }
-    return 'python3';
+    
+    throw new Error('Python not found. Please install Python 3.7+');
 }
 
 function getFlaskScriptPath() {
@@ -32,6 +73,55 @@ function getFlaskScriptPath() {
     console.log(`Checking Flask script at: ${scriptPath}`);
     console.log(`File exists: ${fs.existsSync(scriptPath)}`);
     return scriptPath;
+}
+
+// Vérifier si Flask répond
+function checkFlaskServer(maxRetries = 10, retryDelay = 1000) {
+    return new Promise((resolve, reject) => {
+        let retries = 0;
+        
+        const check = () => {
+            const options = {
+                hostname: FLASK_HOST,
+                port: FLASK_PORT,
+                path: '/',
+                method: 'GET',
+                timeout: 2000
+            };
+            
+            const req = http.request(options, (res) => {
+                if (res.statusCode === 200) {
+                    console.log('✓ Flask server is responding');
+                    resolve(true);
+                } else {
+                    retryCheck();
+                }
+            });
+            
+            req.on('error', () => {
+                retryCheck();
+            });
+            
+            req.on('timeout', () => {
+                req.destroy();
+                retryCheck();
+            });
+            
+            req.end();
+        };
+        
+        const retryCheck = () => {
+            retries++;
+            if (retries < maxRetries) {
+                console.log(`Waiting for Flask server... (${retries}/${maxRetries})`);
+                setTimeout(check, retryDelay);
+            } else {
+                reject(new Error('Flask server did not respond in time'));
+            }
+        };
+        
+        check();
+    });
 }
 
 // Créer la fenêtre principale
@@ -71,6 +161,14 @@ function createWindow() {
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+        
+        // Envoyer l'URL du serveur Flask au renderer
+        mainWindow.webContents.send('flask-server-ready', {
+            url: `http://${FLASK_HOST}:${FLASK_PORT}`,
+            host: FLASK_HOST,
+            port: FLASK_PORT
+        });
+        
         if (isDev) {
             mainWindow.webContents.openDevTools();
         }
@@ -486,7 +584,7 @@ function createMenu() {
                             type: 'info',
                             title: 'À propos',
                             message: 'Badge Management System',
-                            detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}\nChrome: ${process.versions.chrome}`
+                            detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}\nChrome: ${process.versions.chrome}\n\nServeur Flask: http://${FLASK_HOST}:${FLASK_PORT}`
                         });
                     }
                 }
@@ -500,7 +598,14 @@ function createMenu() {
             submenu: [
                 { role: 'reload', label: 'Recharger' },
                 { role: 'forceReload', label: 'Forcer le rechargement' },
-                { role: 'toggleDevTools', label: 'Outils de développement' }
+                { role: 'toggleDevTools', label: 'Outils de développement' },
+                { type: 'separator' },
+                {
+                    label: 'Ouvrir Console Flask',
+                    click: () => {
+                        shell.openExternal(`http://${FLASK_HOST}:${FLASK_PORT}`);
+                    }
+                }
             ]
         });
     }
@@ -579,66 +684,116 @@ function createTray() {
 // Démarrer le serveur Flask
 function startFlaskServer() {
     return new Promise((resolve, reject) => {
-        const pythonPath = getPythonPath();
-        const scriptPath = getFlaskScriptPath();
-        
-        console.log(`Démarrage du serveur Flask...`);
-        console.log(`Python: ${pythonPath}`);
-        console.log(`Script: ${scriptPath}`);
-        
-        if (!fs.existsSync(scriptPath)) {
-            const error = new Error(`Script Flask introuvable: ${scriptPath}`);
-            console.error(error.message);
-            reject(error);
-            return;
-        }
-        
-        flaskProcess = spawn(pythonPath, [scriptPath], {
-            cwd: path.dirname(scriptPath),
-            env: {
-                ...process.env,
-                FLASK_PORT: FLASK_PORT.toString(),
-                FLASK_HOST: '127.0.0.1',
-                FLASK_DEBUG: 'False'
-            }
-        });
-        
-        let serverStarted = false;
-        
-        flaskProcess.stdout.on('data', (data) => {
-            const output = data.toString();
-            console.log(`[Flask] ${output}`);
+        try {
+            const pythonPath = getPythonPath();
+            const scriptPath = getFlaskScriptPath();
             
-            if (output.includes('Running on') || output.includes('Serving Flask')) {
-                if (!serverStarted) {
-                    serverStarted = true;
-                    resolve();
-                }
-            }
-        });
-        
-        flaskProcess.stderr.on('data', (data) => {
-            console.error(`[Flask Error] ${data.toString()}`);
-        });
-        
-        flaskProcess.on('error', (error) => {
-            console.error('Erreur Flask:', error);
-            if (!serverStarted) {
+            console.log(`Démarrage du serveur Flask...`);
+            console.log(`Python: ${pythonPath}`);
+            console.log(`Script: ${scriptPath}`);
+            
+            if (!fs.existsSync(scriptPath)) {
+                const error = new Error(`Script Flask introuvable: ${scriptPath}`);
+                console.error(error.message);
                 reject(error);
+                return;
             }
-        });
-        
-        flaskProcess.on('close', (code) => {
-            console.log(`Serveur Flask arrêté avec le code ${code}`);
-            flaskProcess = null;
-        });
-        
-        setTimeout(() => {
-            if (!serverStarted) {
-                console.log('Timeout: continuation sans confirmation Flask');
-                resolve();
-            }
-        }, 15000);
+            
+            // Combiner les variables d'environnement
+            const flaskEnv = {
+                ...process.env,
+                ...envVars,
+                FLASK_PORT: FLASK_PORT.toString(),
+                FLASK_HOST: FLASK_HOST,
+                FLASK_DEBUG: isDev ? 'True' : 'False',
+                PYTHONUNBUFFERED: '1'  // Pour voir les logs en temps réel
+            };
+            
+            flaskProcess = spawn(pythonPath, [scriptPath], {
+                cwd: path.dirname(scriptPath),
+                env: flaskEnv,
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+            
+            let serverStarted = false;
+            let startupOutput = '';
+            
+            flaskProcess.stdout.on('data', (data) => {
+                const output = data.toString();
+                startupOutput += output;
+                console.log(`[Flask] ${output.trim()}`);
+                
+                // Détecter le démarrage réussi
+                if ((output.includes('Running on') || 
+                     output.includes('Serving Flask') ||
+                     output.includes('Server starting')) && !serverStarted) {
+                    serverStarted = true;
+                    
+                    // Vérifier que le serveur répond réellement
+                    checkFlaskServer(10, 1000)
+                        .then(() => {
+                            console.log('✓ Flask server verified and responding');
+                            resolve();
+                        })
+                        .catch((err) => {
+                            console.error('Flask server not responding:', err);
+                            reject(err);
+                        });
+                }
+            });
+            
+            flaskProcess.stderr.on('data', (data) => {
+                const output = data.toString();
+                console.error(`[Flask Error] ${output.trim()}`);
+                
+                // Certaines erreurs critiques
+                if (output.includes('Address already in use') ||
+                    output.includes('Permission denied') ||
+                    output.includes('ModuleNotFoundError') ||
+                    output.includes('ImportError')) {
+                    if (!serverStarted) {
+                        reject(new Error(output));
+                    }
+                }
+            });
+            
+            flaskProcess.on('error', (error) => {
+                console.error('Erreur de processus Flask:', error);
+                if (!serverStarted) {
+                    reject(error);
+                }
+            });
+            
+            flaskProcess.on('close', (code) => {
+                console.log(`Serveur Flask arrêté avec le code ${code}`);
+                if (code !== 0 && code !== null) {
+                    console.error('Flask startup output:', startupOutput);
+                }
+                flaskProcess = null;
+            });
+            
+            // Timeout de secours
+            setTimeout(() => {
+                if (!serverStarted) {
+                    console.log('Timeout: Vérification manuelle du serveur Flask...');
+                    checkFlaskServer(5, 1000)
+                        .then(() => {
+                            console.log('✓ Flask server responding after timeout');
+                            serverStarted = true;
+                            resolve();
+                        })
+                        .catch((err) => {
+                            console.error('Flask server failed to start in time');
+                            console.error('Startup output:', startupOutput);
+                            reject(new Error('Flask server did not start in time'));
+                        });
+                }
+            }, 15000);
+            
+        } catch (error) {
+            console.error('Error in startFlaskServer:', error);
+            reject(error);
+        }
     });
 }
 
@@ -646,8 +801,18 @@ function startFlaskServer() {
 function stopFlaskServer() {
     if (flaskProcess) {
         console.log('Arrêt du serveur Flask...');
-        flaskProcess.kill();
-        flaskProcess = null;
+        
+        // Essayer d'arrêter proprement d'abord
+        flaskProcess.kill('SIGTERM');
+        
+        // Force kill après 5 secondes si toujours en cours
+        setTimeout(() => {
+            if (flaskProcess) {
+                console.log('Force kill du serveur Flask...');
+                flaskProcess.kill('SIGKILL');
+                flaskProcess = null;
+            }
+        }, 5000);
     }
 }
 
@@ -666,13 +831,17 @@ function isPortAvailable(port) {
             resolve(true);
         });
         
-        server.listen(port, '127.0.0.1');
+        server.listen(port, FLASK_HOST);
     });
 }
 
 // IPC Handlers
 ipcMain.handle('get-app-path', () => {
     return app.getPath('userData');
+});
+
+ipcMain.handle('get-flask-url', () => {
+    return `http://${FLASK_HOST}:${FLASK_PORT}`;
 });
 
 ipcMain.handle('open-file-dialog', async (event, options) => {
@@ -724,31 +893,42 @@ app.whenReady().then(async () => {
     console.log('='.repeat(60));
     console.log(`Mode: ${isDev ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
     console.log(`Plateforme: ${process.platform}`);
+    console.log(`Flask Host: ${FLASK_HOST}`);
+    console.log(`Flask Port: ${FLASK_PORT}`);
     console.log(`__dirname: ${__dirname}`);
     console.log('='.repeat(60));
     
+    // Vérifier si le port est disponible
     const portAvailable = await isPortAvailable(FLASK_PORT);
     if (!portAvailable) {
-        dialog.showErrorBox(
-            'Port occupé',
-            `Le port ${FLASK_PORT} est déjà utilisé.\nFermez toute autre instance de l'application.`
-        );
-        app.quit();
-        return;
+        const choice = dialog.showMessageBoxSync({
+            type: 'error',
+            title: 'Port occupé',
+            message: `Le port ${FLASK_PORT} est déjà utilisé.`,
+            detail: 'Voulez-vous fermer l\'application qui utilise ce port et réessayer ?',
+            buttons: ['Quitter', 'Réessayer']
+        });
+        
+        if (choice === 0) {
+            app.quit();
+            return;
+        }
     }
     
+    // Démarrer Flask
     try {
         console.log('Démarrage du serveur Flask...');
         await startFlaskServer();
         console.log('✓ Serveur Flask démarré avec succès');
+        console.log(`✓ Serveur accessible sur http://${FLASK_HOST}:${FLASK_PORT}`);
     } catch (error) {
         console.error('✗ Erreur au démarrage de Flask:', error);
         
         const choice = dialog.showMessageBoxSync({
             type: 'error',
-            title: 'Erreur de démarrage',
+            title: 'Erreur de démarrage Flask',
             message: 'Impossible de démarrer le serveur Flask',
-            detail: `${error.message}\n\nVérifiez que Python et les dépendances sont installés.`,
+            detail: `${error.message}\n\nVérifiez que :\n- Python est installé\n- Les dépendances sont installées (pip install -r requirements.txt)\n- Le fichier api_server.py existe\n- Le port ${FLASK_PORT} est disponible`,
             buttons: ['Quitter', 'Continuer sans serveur']
         });
         
@@ -758,6 +938,7 @@ app.whenReady().then(async () => {
         }
     }
     
+    // Créer la fenêtre et le tray
     createWindow();
     createTray();
     
