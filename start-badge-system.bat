@@ -117,24 +117,59 @@ if not exist "api_server.py" (
     exit /b 1
 )
 
-REM Tuer tout processus Python existant sur le port 5000
-echo Nettoyage des processus existants...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do taskkill /F /PID %%a >nul 2>&1
+REM Tuer tout processus existant sur le port 5000
+echo Nettoyage des processus existants sur le port 5000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
+    echo Arret du processus PID: %%a
+    taskkill /F /PID %%a
+)
+
+REM Attendre que le port soit libere
+timeout /t 2 /nobreak >nul
+
+REM Verifier une seconde fois et tuer si necessaire
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
+    echo Arret force du processus PID: %%a
+    taskkill /F /PID %%a
+    timeout /t 1 /nobreak >nul
+)
+
+REM Verifier que le port est bien libre
+netstat -ano | findstr :5000 | findstr LISTENING >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [ERREUR] Le port 5000 est toujours utilise
+    echo Veuillez fermer manuellement l'application qui utilise ce port
+    echo.
+    echo Processus utilisant le port 5000:
+    netstat -ano | findstr :5000
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [OK] Port 5000 libre
 
 REM Lancer le serveur Flask en arriere-plan
 echo Demarrage du serveur Flask...
 start "Flask API Server" python api_server.py
 
-REM Attendre que le serveur Flask demarre
+REM Attendre que le serveur Flask demarre (avec plusieurs tentatives)
 echo Attente du demarrage du serveur Flask...
-timeout /t 3 /nobreak >nul
-
-REM Verifier si le serveur Flask est lance
+set RETRIES=0
+:WAIT_FLASK
+timeout /t 2 /nobreak >nul
 netstat -ano | findstr :5000 | findstr LISTENING >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERREUR] Le serveur Flask n'a pas demarre correctement
-    pause
-    exit /b 1
+    set /a RETRIES+=1
+    if %RETRIES% leq 5 (
+        echo Tentative %RETRIES%/5...
+        goto WAIT_FLASK
+    ) else (
+        echo [ERREUR] Le serveur Flask n'a pas demarre apres 10 secondes
+        echo Verifiez les erreurs dans la fenetre Flask
+        pause
+        exit /b 1
+    )
 )
 
 echo [OK] Serveur Flask demarre sur http://127.0.0.1:5000
