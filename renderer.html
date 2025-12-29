@@ -1,0 +1,972 @@
+ <!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Badges</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .controls {
+            padding: 30px;
+            background: white;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        select {
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            background: white;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .table-container .tabs {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 0;
+            background: none;
+            border: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #667eea;
+            border-radius: 3px 3px 0 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tbody tr {
+            transition: background 0.3s;
+        }
+
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-valid {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-invalid {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-local {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-external {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 30px;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 30px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        #excelFileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎫 Gestion des Badges</h1>
+            <p>Système de gestion centralisé</p>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3 id="totalBadges">0</h3>
+                <p>Total Badges</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="validatedBadges">0</h3>
+                <p>Badges Validés</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="externalBadges">0</h3>
+                <p>Badges Externes</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalPrints">0</h3>
+                <p>Impressions</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-row">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Rechercher par nom, prénom ou ID...">
+                    <span class="search-icon">🔍</span>
+                </div>
+                
+                <select id="filterValide">
+                    <option value="">Tous les statuts</option>
+                    <option value="1">Validés</option>
+                    <option value="0">Non validés</option>
+                </select>
+
+                <button class="btn btn-primary" onclick="openAddModal()">
+                    ➕ Nouveau Badge
+                </button>
+
+                <button class="btn btn-success" onclick="syncExternal()">
+                    🔄 Synchroniser
+                </button>
+
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
+                <button class="btn btn-warning" onclick="document.getElementById('excelFileInput').click()">
+                    📥 Importer Excel
+                </button>
+
+                <button class="btn btn-secondary" onclick="exportExcel()">
+                    📤 Exporter Excel
+                </button>
+
+                <button class="btn btn-secondary" onclick="loadBadges()">
+                    ↻ Actualiser
+                </button>
+            </div>
+        </div>
+
+        <div id="messageContainer"></div>
+
+        <div class="table-container">
+            <div class="tabs">
+                <button class="tab active" data-source="local" onclick="switchTab('local')">
+                    💾 Local
+                </button>
+                <button class="tab" data-source="external" onclick="switchTab('external')">
+                    🌐 Externe
+                </button>
+            </div>
+
+            <div id="loadingIndicator" class="loading" style="display:none;">
+                Chargement des données<span class="spinner"></span>
+            </div>
+            
+            <table id="badgeTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom</th>
+                        <th>Prénom</th>
+                        <th>Statut</th>
+                        <th>Source</th>
+                        <th>Date de création</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="badgeTableBody">
+                </tbody>
+            </table>
+
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                </svg>
+                <h3>Aucun badge trouvé</h3>
+                <p>Commencez par ajouter un nouveau badge ou importez un fichier Excel</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Badge Modal -->
+    <div id="badgeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nouveau Badge</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="badgeForm" onsubmit="saveBadge(event)">
+                <div class="form-group">
+                    <label for="nom">Nom *</label>
+                    <input type="text" id="nom" required>
+                </div>
+                <div class="form-group">
+                    <label for="prenom">Prénom *</label>
+                    <input type="text" id="prenom" required>
+                </div>
+                <div class="form-group">
+                    <label for="valide">Statut</label>
+                    <select id="valide">
+                        <option value="0">Non validé</option>
+                        <option value="1">Validé</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000';
+        let currentBadgeId = null;
+        let currentSource = 'local';
+        const LOCAL_STORAGE_KEY = 'badges_local';
+        const PRINT_COUNTER_KEY = 'print_counter';
+
+        // Local Storage functions
+        function getLocalBadges() {
+            const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveLocalBadges(badges) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(badges));
+        }
+
+        function getNextLocalId() {
+            const badges = getLocalBadges();
+            if (badges.length === 0) return 1;
+            return Math.max(...badges.map(b => b.id)) + 1;
+        }
+
+        function getPrintCounter() {
+            return parseInt(localStorage.getItem(PRINT_COUNTER_KEY) || '0');
+        }
+
+        function incrementPrintCounter() {
+            const count = getPrintCounter() + 1;
+            localStorage.setItem(PRINT_COUNTER_KEY, count.toString());
+            return count;
+        }
+
+        // Load badges on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBadges();
+            loadStats();
+
+            // Search functionality
+            document.getElementById('searchInput').addEventListener('input', debounce(loadBadges, 500));
+            document.getElementById('filterValide').addEventListener('change', loadBadges);
+        });
+
+        function switchTab(source) {
+            currentSource = source;
+            
+            // Update tab styling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.tab[data-source="${source}"]`).classList.add('active');
+            
+            // Reload badges with new source filter
+            loadBadges();
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        async function loadBadges() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const valide = document.getElementById('filterValide').value;
+
+            showLoading(true);
+            hideMessage();
+
+            try {
+                let badges = [];
+
+                if (currentSource === 'local') {
+                    // Load from localStorage (no API call)
+                    badges = getLocalBadges();
+                    
+                    // Apply filters
+                    if (search) {
+                        badges = badges.filter(b => 
+                            b.nom.toLowerCase().includes(search) ||
+                            b.prenom.toLowerCase().includes(search) ||
+                            b.id.toString().includes(search)
+                        );
+                    }
+                    
+                    if (valide !== '') {
+                        badges = badges.filter(b => b.valide === parseInt(valide));
+                    }
+                } else {
+                    // Load from external API
+                    let url = `${API_URL}/api/getbadges?source=external`;
+                    if (search) url += `&search=${encodeURIComponent(search)}`;
+                    if (valide !== '') url += `&valide=${valide}`;
+
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Erreur lors du chargement des badges externes');
+
+                    badges = await response.json();
+                }
+                
+                displayBadges(badges);
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('badgeTable').style.display = 'none';
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function loadStats() {
+            const localBadges = getLocalBadges();
+            const validatedLocal = localBadges.filter(b => b.valide === 1).length;
+            const printCount = getPrintCounter();
+
+            // Load external stats from API
+            fetch(`${API_URL}/api/stats`)
+                .then(response => response.json())
+                .then(stats => {
+                    const externalCount = stats.external_badges || 0;
+                    const totalCount = localBadges.length + externalCount;
+                    
+                    document.getElementById('totalBadges').textContent = totalCount;
+                    document.getElementById('validatedBadges').textContent = validatedLocal;
+                    document.getElementById('externalBadges').textContent = externalCount;
+                    document.getElementById('totalPrints').textContent = printCount;
+                })
+                .catch(error => {
+                    // If API fails, just show local stats
+                    document.getElementById('totalBadges').textContent = localBadges.length;
+                    document.getElementById('validatedBadges').textContent = validatedLocal;
+                    document.getElementById('externalBadges').textContent = 0;
+                    document.getElementById('totalPrints').textContent = printCount;
+                });
+        }
+
+        function displayBadges(badges) {
+            const tbody = document.getElementById('badgeTableBody');
+            const table = document.getElementById('badgeTable');
+            const emptyState = document.getElementById('emptyState');
+
+            tbody.innerHTML = '';
+
+            if (!badges || badges.length === 0) {
+                table.style.display = 'none';
+                emptyState.style.display = 'block';
+                
+                const emptyMessage = currentSource === 'local' 
+                    ? 'Aucun badge local trouvé' 
+                    : 'Aucun badge externe trouvé';
+                const emptySubtext = currentSource === 'local'
+                    ? 'Commencez par ajouter un nouveau badge ou importez un fichier Excel'
+                    : 'Utilisez le bouton "Synchroniser" pour charger les badges externes';
+                
+                emptyState.querySelector('h3').textContent = emptyMessage;
+                emptyState.querySelector('p').textContent = emptySubtext;
+                return;
+            }
+
+            table.style.display = 'table';
+            emptyState.style.display = 'none';
+
+            badges.forEach(badge => {
+                const row = document.createElement('tr');
+                
+                const statusClass = badge.valide ? 'badge-valid' : 'badge-invalid';
+                const statusText = badge.valide ? '✓ Validé' : '✗ Non validé';
+                
+                const sourceClass = badge.source === 'local' ? 'badge-local' : 'badge-external';
+                const sourceText = badge.source === 'local' ? '💾 Local' : '🌐 Externe';
+
+                const date = badge.created_at ? new Date(badge.created_at).toLocaleDateString('fr-FR') : '-';
+
+                const editDeleteButtons = currentSource === 'local' ? `
+
+                ` : '';
+
+                row.innerHTML = `
+                    <td><strong>#${badge.id}</strong></td>
+                    <td>${badge.nom}</td>
+                    <td>${badge.prenom}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td><span class="badge ${sourceClass}">${sourceText}</span></td>
+                    <td>${date}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-secondary" id="print-btn-${badge.id}" onclick="printBadge(${badge.id})" title="Imprimer">
+                                🖨️
+                            </button>
+                            ${editDeleteButtons}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function openAddModal() {
+            currentBadgeId = null;
+            document.getElementById('modalTitle').textContent = 'Nouveau Badge';
+            document.getElementById('nom').value = '';
+            document.getElementById('prenom').value = '';
+            document.getElementById('valide').value = '0';
+            document.getElementById('badgeModal').classList.add('active');
+        }
+
+
+        function closeModal() {
+            document.getElementById('badgeModal').classList.remove('active');
+            currentBadgeId = null;
+        }
+
+        function saveBadge(event) {
+            event.preventDefault();
+
+            const badges = getLocalBadges();
+            const data = {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                valide: parseInt(document.getElementById('valide').value),
+                source: 'local',
+                created_at: new Date().toISOString()
+            };
+
+            if (currentBadgeId) {
+                // Update existing badge
+                const index = badges.findIndex(b => b.id === currentBadgeId);
+                if (index !== -1) {
+                    badges[index] = { ...badges[index], ...data };
+                }
+            } else {
+                // Add new badge
+                data.id = getNextLocalId();
+                badges.push(data);
+            }
+
+            saveLocalBadges(badges);
+            showMessage('Badge enregistré avec succès!', 'success');
+            closeModal();
+            loadBadges();
+            loadStats();
+        }
+
+
+        async function printBadge(id) {
+            const printBtn = document.getElementById(`print-btn-${id}`);
+            
+            // Désactiver le bouton
+            if (printBtn) {
+                printBtn.disabled = true;
+                printBtn.style.opacity = '0.5';
+                printBtn.style.cursor = 'not-allowed';
+                printBtn.innerHTML = '⏳';
+            }
+
+            try {
+                let badge;
+                
+                if (currentSource === 'local') {
+                    const badges = getLocalBadges();
+                    badge = badges.find(b => b.id === id);
+                } else {
+                    const response = await fetch(`${API_URL}/api/getbadges/${id}`);
+                    if (!response.ok) throw new Error('Badge non trouvé');
+                    badge = await response.json();
+                }
+
+                if (!badge) throw new Error('Badge non trouvé');
+
+                const response = await fetch(`${API_URL}/print-label`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: badge.id,
+                        nom: badge.nom,
+                        prenom: badge.prenom
+                    })
+                });
+
+                if (!response.ok) throw new Error('Erreur d\'impression');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `badge_${badge.prenom}_${badge.nom}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                incrementPrintCounter();
+                showMessage('Badge téléchargé!', 'success');
+                loadStats();
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+            } finally {
+                setTimeout(() => {
+                    if (printBtn) {
+                        printBtn.disabled = false;
+                        printBtn.style.opacity = '1';
+                        printBtn.style.cursor = 'pointer';
+                        printBtn.innerHTML = '🖨️';
+                    }
+                }, 2000);
+            }
+        }
+
+        async function syncExternal() {
+            if (!confirm('Synchroniser les badges externes vers la base locale?')) return;
+
+            showMessage('Synchronisation en cours...', 'success');
+
+            try {
+                const response = await fetch(`${API_URL}/api/sync-external`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error('Erreur de synchronisation');
+
+                const result = await response.json();
+                showMessage(`✓ ${result.synced} badges synchronisés!`, 'success');
+                loadBadges();
+                loadStats();
+            } catch (error) {
+                showMessage('Erreur: ' + error.message, 'error');
+            }
+        }
+
+        async function importExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const validExtensions = ['.xlsx', '.xls', '.csv'];
+            const fileName = file.name.toLowerCase();
+            const isValid = validExtensions.some(ext => fileName.endsWith(ext));
+            
+            if (!isValid) {
+                showMessage('Type de fichier non valide. Utilisez .xlsx, .xls ou .csv', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            showMessage('Import en cours...', 'success');
+            
+            // For simplicity, we'll just show an error message
+            // In a real app, you'd parse the Excel file client-side
+            showMessage('Fonction d\'import Excel non implémentée pour le mode local', 'error');
+            event.target.value = '';
+        }
+
+        function exportExcel() {
+            const badges = currentSource === 'local' ? getLocalBadges() : [];
+            
+            if (badges.length === 0) {
+                showMessage('Aucun badge à exporter', 'error');
+                return;
+            }
+
+            // Create CSV content
+            let csv = 'ID,Nom,Prénom,Statut,Source,Date de création\n';
+            badges.forEach(badge => {
+                const status = badge.valide ? 'Validé' : 'Non validé';
+                const date = badge.created_at ? new Date(badge.created_at).toLocaleDateString('fr-FR') : '';
+                csv += `${badge.id},"${badge.nom}","${badge.prenom}","${status}","${badge.source}","${date}"\n`;
+            });
+
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            a.download = `badges_export_${timestamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showMessage('✓ Fichier CSV téléchargé avec succès!', 'success');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+        }
+
+        function showMessage(message, type) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        function hideMessage() {
+            document.getElementById('messageContainer').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
