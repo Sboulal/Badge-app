@@ -1,25 +1,40 @@
 @echo off
-echo Installation Badge Management System
+chcp 65001 >nul
+cls
+color 0B
+title Badge Management System - Demarrage
+
+echo.
+echo ========================================================
+echo    Badge Management System
+echo    Lancement de l'application...
+echo ========================================================
 echo.
 
-python --version
-if %errorlevel% neq 0 (
-    echo ERREUR: Python non trouve
-    echo Installez Python depuis python.org
+REM Verification rapide
+where node >nul 2>&1
+if errorlevel 1 (
+    echo [ERREUR] Node.js introuvable!
+    echo Executez install.bat d'abord.
     pause
-    exit
+    exit /b 1
 )
 
-echo Creation environnement virtuel...
-python -m venv venv
+where python >nul 2>&1
+if errorlevel 1 (
+    echo [ERREUR] Python introuvable!
+    echo Executez install.bat d'abord.
+    pause
+    exit /b 1
+)
 
-echo Activation...
-call venv\Scripts\activate
-
-echo Installation packages...
-pip install flask flask-cors python-dotenv pillow openpyxl requests pyusb brother-ql
-
+echo [OK] Environnement verifie
 echo.
-echo Installation terminee!
-echo Lancez: start.bat
+echo Demarrage de l'application...
+echo.
+echo Appuyez sur Ctrl+C pour arreter
+echo.
+
+npm start
+
 pause
