@@ -41,6 +41,17 @@ if %errorlevel% neq 0 (
 echo [OK] Node.js detecte
 echo.
 
+REM Verifier si api_server.py existe
+if not exist "api_server.py" (
+    echo [ERREUR] Le fichier api_server.py est introuvable
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [OK] api_server.py trouve
+echo.
+
 REM Verifier si les dependances Python sont installees
 echo Verification des dependances Python...
 python -c "import flask" >nul 2>&1
@@ -102,104 +113,58 @@ if not exist ".env" (
         echo CORS_ORIGINS=*
     ) > .env
     echo [OK] Fichier .env cree
-)
-
-echo.
-echo ========================================
-echo   Demarrage du serveur Flask
-echo ========================================
-echo.
-
-REM Verifier si le fichier api_server.py existe
-if not exist "api_server.py" (
-    echo [ERREUR] Le fichier api_server.py est introuvable
-    pause
-    exit /b 1
-)
-
-REM Tuer tout processus existant sur le port 5000
-echo Nettoyage des processus existants sur le port 5000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
-    echo Arret du processus PID: %%a
-    taskkill /F /PID %%a
-)
-
-REM Attendre que le port soit libere
-timeout /t 2 /nobreak >nul
-
-REM Verifier une seconde fois et tuer si necessaire
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
-    echo Arret force du processus PID: %%a
-    taskkill /F /PID %%a
-    timeout /t 1 /nobreak >nul
-)
-
-REM Verifier que le port est bien libre
-netstat -ano | findstr :5000 | findstr LISTENING >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [ERREUR] Le port 5000 est toujours utilise
-    echo Veuillez fermer manuellement l'application qui utilise ce port
     echo.
-    echo Processus utilisant le port 5000:
-    netstat -ano | findstr :5000
-    echo.
-    pause
-    exit /b 1
 )
-
-echo [OK] Port 5000 libre
-
-REM Lancer le serveur Flask en arriere-plan
-echo Demarrage du serveur Flask...
-start "Flask API Server" python api_server.py
-
-REM Attendre que le serveur Flask demarre (avec plusieurs tentatives)
-echo Attente du demarrage du serveur Flask...
-set RETRIES=0
-:WAIT_FLASK
-timeout /t 2 /nobreak >nul
-netstat -ano | findstr :5000 | findstr LISTENING >nul 2>&1
-if %errorlevel% neq 0 (
-    set /a RETRIES+=1
-    if %RETRIES% leq 5 (
-        echo Tentative %RETRIES%/5...
-        goto WAIT_FLASK
-    ) else (
-        echo [ERREUR] Le serveur Flask n'a pas demarre apres 10 secondes
-        echo Verifiez les erreurs dans la fenetre Flask
-        pause
-        exit /b 1
-    )
-)
-
-echo [OK] Serveur Flask demarre sur http://127.0.0.1:5000
-echo.
 
 echo ========================================
-echo   Demarrage de l'application Electron
+echo   Nettoyage du port 5000
 echo ========================================
 echo.
 
-REM Lancer l'application Electron
+REM Nettoyer les anciens processus qui pourraient bloquer le port
+echo Verification du port 5000...
+set PORT_CLEANED=0
+
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr :5000 ^| findstr LISTENING') do (
+    echo Arret du processus bloquant le port (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>&1
+    set PORT_CLEANED=1
+)
+
+if %PORT_CLEANED%==1 (
+    echo Attente de liberation du port...
+    timeout /t 2 /nobreak >nul
+    echo [OK] Port 5000 nettoye
+) else (
+    echo [OK] Port 5000 disponible
+)
+
+echo.
+echo ========================================
+echo   Demarrage de l'application
+echo   Electron va lancer Flask automatiquement
+echo ========================================
+echo.
+
+REM Lancer l'application Electron (qui lancera Flask en interne)
 npm start
 
 if %errorlevel% neq 0 (
     echo.
     echo [ERREUR] L'application s'est arretee avec une erreur
+    echo.
+    echo Verifications a effectuer:
+    echo - Python est bien installe et dans le PATH
+    echo - Toutes les dependances sont installees
+    echo - Le fichier api_server.py existe
+    echo - Le port 5000 n'est pas bloque par un pare-feu
+    echo.
+    pause
+    exit /b 1
 )
 
 echo.
 echo ========================================
-echo   Arret du serveur Flask
+echo   Application fermee normalement
 echo ========================================
-echo.
-
-REM Arreter le serveur Flask
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
-    echo Arret du processus Flask (PID: %%a)
-    taskkill /F /PID %%a >nul 2>&1
-)
-
-echo.
-echo Application fermee normalement
 pause
