@@ -768,6 +768,31 @@
                 tbody.appendChild(row);
             });
         }
+        function editBadge(id) { const badges = getLocalBadges(); const badge = badges.find(b => b.id === id);
+
+if (!badge) {
+    showMessage('Badge non trouvéa', 'error');
+    return;
+}
+
+currentBadgeId = id;
+document.getElementById('modalTitle').textContent = 'Modifier Badge';
+document.getElementById('nom').value = badge.nom;
+document.getElementById('prenom').value = badge.prenom;
+document.getElementById('valide').value = badge.valide;
+document.getElementById('badgeModal').classList.add('active');
+}
+
+function deleteBadge(id) { if (!confirm('Êtes-vous sûr de vouloir supprimer ce badge?')) return;
+
+const badges = getLocalBadges();
+const filteredBadges = badges.filter(b => b.id !== id);
+saveLocalBadges(filteredBadges);
+
+showMessage('Badge supprimé avec succès!', 'success');
+loadBadges();
+loadStats();
+}
 
         function openAddModal() {
             currentBadgeId = null;
@@ -802,7 +827,9 @@
                 if (index !== -1) {
                     badges[index] = { ...badges[index], ...data };
                 }
-            } else {
+
+            }
+             else {
                 // Add new badge
                 data.id = getNextLocalId();
                 badges.push(data);
@@ -817,34 +844,38 @@
 
 
         async function printBadge(id) {
-            const printBtn = document.getElementById(`print-btn-${id}`);
+    const printBtn = document.getElementById(`print-btn-${id}`);
+    
+    // Désactiver le bouton
+    if (printBtn) {
+        printBtn.disabled = true;
+        printBtn.style.opacity = '0.5';
+        printBtn.style.cursor = 'not-allowed';
+        printBtn.innerHTML = '⏳';
+    }
+
+    try {
+        let badge;
+        
+        if (currentSource === 'local') {
+            // Récupérer depuis localStorage
+            const badges = getLocalBadges();
+            badge = badges.find(b => b.id === id);
+        } else {
+            // Récupérer depuis l'API externe
+            const response = await fetch(`${API_URL}/api/getbadges?source=external`);
+            if (!response.ok) throw new Error('Impossible de récupérer les badges externes');
             
-            // Désactiver le bouton
-            if (printBtn) {
-                printBtn.disabled = true;
-                printBtn.style.opacity = '0.5';
-                printBtn.style.cursor = 'not-allowed';
-                printBtn.innerHTML = '⏳';
-            }
+            const badges = await response.json();
+            badge = badges.find(b => b.id === id);
+        }
 
-            try {
-                let badge;
-                
-                if (currentSource === 'local') {
-                    const badges = getLocalBadges();
-                    badge = badges.find(b => b.id === id);
-                } else {
-                    const response = await fetch(`${API_URL}/api/getbadges/${id}`);
-                    if (!response.ok) throw new Error('Badge non trouvé');
-                    badge = await response.json();
-                }
+        if (!badge) throw new Error('Badge non trouvé');
 
-                if (!badge) throw new Error('Badge non trouvé');
-
-                const response = await fetch(`${API_URL}/print-label`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+        const response = await fetch(`${API_URL}/print-label`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                         id: badge.id,
                         nom: badge.nom,
                         prenom: badge.prenom

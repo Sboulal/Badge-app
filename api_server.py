@@ -9,6 +9,7 @@ import sqlite3
 from datetime import datetime
 import os
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 import requests
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
