@@ -847,11 +847,9 @@ loadStats();
     const printBtn = document.getElementById(`print-btn-${id}`);
     
     // Désactiver le bouton
-    if (printBtn) {
-        printBtn.disabled = true;
-        printBtn.style.opacity = '0.5';
-        printBtn.style.cursor = 'not-allowed';
-        printBtn.innerHTML = '⏳';
+   if (printBtn) {
+        printBtn.innerHTML = '✓';
+        printBtn.style.background = '#10b981';
     }
 
     try {
